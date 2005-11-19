@@ -1,0 +1,137 @@
+#	$NetBSD: Makefile,v 1.80 2005/06/26 19:10:49 christos Exp $
+#	@(#)Makefile	8.4 (Berkeley) 5/5/95
+SMALLPROG = 1
+
+OBJDIR ?= obj
+
+PROG=sh
+SHSRCS=	alias.c cd.c echo.c error.c eval.c exec.c expand.c \
+	histedit.c input.c jobs.c mail.c main.c memalloc.c miscbltin.c \
+	mystring.c options.c parser.c redir.c show.c trap.c output.c var.c \
+	test.c kill.c syntax.c yywrap.c
+GENSRCS=arith.c arith_lex.c builtins.c init.c nodes.c
+GENHDRS=$(OBJDIR)/arith.h $(OBJDIR)/builtins.h $(OBJDIR)/nodes.h $(OBJDIR)/token.h
+SRCS=	${SHSRCS} ${GENSRCS}
+
+DPSRCS+=${GENHDRS}
+
+CC        = gcc
+CFLAGS    = -g -Zomf -Dlint -DSHELL -DEXEC_HASH_BANG_SCRIPT -DPC_OS2_LIBPATHS -DPC_PATH_SEP -DPC_DRIVE_LETTERS -DPC_EXE_EXTS -I$(OBJDIR) -I. # (the last is because of error.h)
+# for debug:
+LD        = gcc
+LDFLAGS   = -Zomf -Zmap -Zstack 384 -Zfork
+#LDFLAGS += -Wl,-static -static
+YACC      = yacc
+LEX       = flex
+
+ifneq ($(BUILD_TYPE),release)
+CFLAGS  += -g -DDEBUG=2 -O0
+LDFLAGS += -g
+else
+CFLAGS += -O2 -march=i586 -mcpu=i586 -fno-strength-reduce  -fomit-frame-pointer
+endif
+
+ifdef SMALLPROG
+CFLAGS += -DSMALL
+else
+CFLAGS += -Ilibedit
+SRCS   += printf.c
+endif
+
+LFLAGS=	-8	# 8-bit lex scanner for arithmetic
+YFLAGS=	-d
+ifdef CRUNCHEDPROG
+LFLAGS+=-L
+YFLAGS+=-l
+endif
+
+
+all: ash-dyn.exe ash-static.exe
+
+CLEANFILES+= ${GENSRCS} ${GENHDRS} y.tab.h
+CLEANFILES+= trace
+
+$(OBJDIR)/token.h: mktokens | $(OBJDIR)
+	bash $^
+	mv -f token.h $@.tmp
+	mv -f $@.tmp $@
+
+$(OBJDIR)/builtins.h: $(OBJDIR)/builtins.c | $(OBJDIR)
+
+$(OBJDIR)/builtins.c: mkbuiltins shell.h builtins.def | $(OBJDIR)
+	bash $^ $(OBJDIR)
+	[ -f $(OBJDIR)/builtins.h ]
+
+$(OBJDIR)/init.c: mkinit.sh $(foreach src,$(SHSRCS),$(firstword $(wildcard ./$(src) ./funcs/$(src) ./bltin/$(src)) $(src))) | $(OBJDIR)
+	bash $^
+	mv -f init.c $@.tmp
+	mv -f $@.tmp $@
+
+$(OBJDIR)/nodes.h: $(OBJDIR)/nodes.c | $(OBJDIR)
+
+$(OBJDIR)/nodes.c: mknodes.sh nodetypes nodes.c.pat | $(OBJDIR)
+	bash $^ $(OBJDIR)
+	[ -f $(OBJDIR)/nodes.h ]
+
+$(OBJDIR)/arith.h $(OBJDIR)/arith.c: arith.y | $(OBJDIR)
+	$(YACC) $(YFLAGS) $^
+	mv -f y.tab.c $(OBJDIR)/arith.c
+	mv -f y.tab.h $(OBJDIR)/arith.h
+
+$(OBJDIR)/arith_lex.c: arith_lex.l | $(OBJDIR)
+	$(LEX) $(LFLAGS) -o$@ $^
+
+#######
+
+OBJS :=
+
+define def_compile
+
+$(eval s := $(firstword $(wildcard ./$(src) ./funcs/$(src) ./bltin/$(src)) $(src)))
+$(eval o := $(OBJDIR)/$(patsubst %.c,%.o,$(src)))
+$(eval OBJS += $(o))
+
+$(o): $(s) | $(GENHDRS) $(OBJDIR)
+	$$(CC) -c $$(CFLAGS) -o $$@ $(s)
+
+endef
+
+$(foreach src,$(SHSRCS),$(eval $(def_compile)))
+
+define def_compile_gen
+
+$(eval o := $(patsubst %.c,%.o,$(src)))
+$(eval OBJS += $(o))
+
+$(o): $(src) | $(OBJDIR)
+	$$(CC) -c $$(CFLAGS) -o $$@ $(src)
+
+endef
+
+$(foreach src,$(addprefix $(OBJDIR)/,$(GENSRCS)),$(eval $(def_compile_gen)))
+
+$(OBJDIR):
+	mkdir -p $@
+
+#######
+
+ash-dyn.exe: $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS)
+#	lxlite /X /F /APP:4096 /S /T $@
+
+ash-static.exe: $(OBJS)
+	$(CC) $(CFLAGS) -Wl,-static -static $(LDFLAGS) -lc_omf386 -o $@ $(OBJS)
+#	lxlite /X /F /APP:4096 /S /T $@
+
+#%.exe: %.c
+#	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+
+#echo.o: bltin/echo.c
+#	$(CC) -c -o $@ $(CFLAGS) $<
+#test.o: bltin/test.c
+#	$(CC) -c -o $@ $(CFLAGS) $<
+
+clean:
+	rm -f core *.o $(CLEAN_FILES)
+
+

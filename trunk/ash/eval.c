@@ -605,7 +605,11 @@ syspath(void)
 {
 	static char *sys_path = NULL;
 	static int mib[] = {CTL_USER, USER_CS_PATH};
+#ifdef PC_PATH_SEP
+	static char def_path[] = "PATH=/usr/bin;/bin;/usr/sbin;/sbin";
+#else
 	static char def_path[] = "PATH=/usr/bin:/bin:/usr/sbin:/sbin";
+#endif
 	size_t len;
 
 	if (sys_path == NULL) {
@@ -1013,7 +1017,7 @@ normal_fork:
 					e == EXEXEC ? exerrno : 2;
 		}
 		handler = savehandler;
-		flushall();
+		output_flushall();
 		out1 = &output;
 		out2 = &errout;
 		freestdout();

@@ -46,6 +46,31 @@ __RCSID("$NetBSD: var.c,v 1.36 2004/10/06 10:23:43 enami Exp $");
 #include <strings.h>
 #include <paths.h>
 
+#ifdef PC_OS2_LIBPATHS
+#define INCL_BASE
+#include <os2.h>
+
+#ifndef LIBPATHSTRICT
+#define LIBPATHSTRICT 3
+#endif
+
+extern APIRET
+#ifdef APIENTRY
+    APIENTRY
+#endif
+    DosQueryHeaderInfo(HMODULE hmod, ULONG ulIndex, PVOID pvBuffer, ULONG cbBuffer, ULONG ulSubFunction);
+#define QHINF_EXEINFO       1 /* NE exeinfo. */
+#define QHINF_READRSRCTBL   2 /* Reads from the resource table. */
+#define QHINF_READFILE      3 /* Reads from the executable file. */
+#define QHINF_LIBPATHLENGTH 4 /* Gets the libpath length. */
+#define QHINF_LIBPATH       5 /* Gets the entire libpath. */
+#define QHINF_FIXENTRY      6 /* NE only */
+#define QHINF_STE           7 /* NE only */
+#define QHINF_MAPSEL        8 /* NE only */
+
+#endif
+
+
 /*
  * Shell variables.
  */
@@ -100,6 +125,11 @@ struct var vps2;
 struct var vps4;
 struct var vvers;
 struct var voptind;
+
+#ifdef PC_OS2_LIBPATHS
+static struct var libpath_vars[4];
+static const char *libpath_envs[4] = {"LIBPATH=", "BEGINLIBPATH=", "ENDLIBPATH=", "LIBPATHSTRICT="};
+#endif
 
 const struct varinit varinit[] = {
 #if ATTY
@@ -171,6 +201,43 @@ initvar(void)
 	const struct varinit *ip;
 	struct var *vp;
 	struct var **vpp;
+
+#ifdef PC_OS2_LIBPATHS
+        char *psz = ckmalloc(2048);
+        int rc;
+        int i;
+        for (i = 0; i < 4; i++)
+        {
+            libpath_vars[i].flags = VSTRFIXED | VOS2LIBPATH;
+            libpath_vars[i].func = NULL;
+
+            if (i > 0)
+                rc = DosQueryExtLIBPATH(psz, i);
+            else
+            {
+                rc = DosQueryHeaderInfo(NULLHANDLE, 0, psz, 2048, QHINF_LIBPATH);
+                libpath_vars[i].flags |= VREADONLY;
+            }
+            if (!rc && *psz)
+            {
+                int cch1 = strlen(libpath_envs[i]);
+                int cch2 = strlen(psz) + 1;
+                libpath_vars[i].text = ckmalloc(cch1 + cch2);
+                memcpy(libpath_vars[i].text, libpath_envs[i], cch1);
+                memcpy(libpath_vars[i].text + cch1, psz, cch2);
+            }
+            else
+            {
+                libpath_vars[i].flags |= VUNSET | VTEXTFIXED;
+                libpath_vars[i].text = (char*)libpath_envs[i];
+            }
+            if (find_var(libpath_vars[i].text, &vpp, &libpath_vars[i].name_len) != NULL)
+                    continue;
+            libpath_vars[i].next = *vpp;
+            *vpp = &libpath_vars[i];
+        }
+        free(psz);
+#endif
 
 	for (ip = varinit ; (vp = ip->var) != NULL ; ip++) {
 		if (find_var(ip->text, &vpp, &vp->name_len) != NULL)
@@ -299,6 +366,10 @@ setvareq(char *s, int flags)
 		vp->flags &= ~(VTEXTFIXED|VSTACK|VUNSET);
 		vp->flags |= flags & ~VNOFUNC;
 		vp->text = s;
+#ifdef PC_OS2_LIBPATHS
+                if ((vp->flags & VOS2LIBPATH) && (vp->flags & VEXPORT))
+                    vp->flags &= ~VEXPORT;
+#endif
 
 		/*
 		 * We could roll this to a function, to handle it as
@@ -419,6 +490,15 @@ environment(void)
 				*ep++ = vp->text;
 	}
 	*ep = NULL;
+
+#ifdef PC_OS2_LIBPATHS
+        /*
+         * Set the libpaths now as this is exec() time.
+         */
+        for (nenv = 0; nenv < 3; nenv++)
+            DosSetExtLIBPATH(strchr(libpath_vars[nenv].text, '=') + 1, nenv);
+#endif
+
 	return env;
 }
 

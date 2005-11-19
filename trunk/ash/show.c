@@ -287,6 +287,7 @@ trace(const char *fmt, ...)
 
 	if (debug != 1)
 		return;
+        fprintf(tracefile, "[%d] ", getpid());
 	va_start(va, fmt);
 	(void) vfprintf(tracefile, fmt, va);
 	va_end(va);
@@ -299,6 +300,7 @@ tracev(const char *fmt, va_list va)
 #ifdef DEBUG
 	if (debug != 1)
 		return;
+        fprintf(tracefile, "[%d] ", getpid());
 	(void) vfprintf(tracefile, fmt, va);
 #endif
 }

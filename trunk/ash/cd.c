@@ -119,7 +119,7 @@ cdcmd(int argc, char **argv)
 	}
 	if (*dest == '\0')
 	        dest = ".";
-	if (*dest == '/' || (path = bltinlookup("CDPATH", 1)) == NULL)
+	if (IS_ROOT(dest) || (path = bltinlookup("CDPATH", 1)) == NULL)
 		path = nullstr;
 	while ((p = padvance(&path, dest)) != NULL) {
 		if (stat(p, &statb) >= 0 && S_ISDIR(statb.st_mode)) {
@@ -167,7 +167,7 @@ docd(char *dest, int print)
 	cdcomppath = stalloc(strlen(dest) + 1);
 	scopy(dest, cdcomppath);
 	STARTSTACKSTR(p);
-	if (*dest == '/') {
+	if (IS_ROOT(dest)) {
 		STPUTC('/', p);
 		cdcomppath++;
 	}
@@ -268,7 +268,7 @@ updatepwd(char *dir)
 	cdcomppath = stalloc(strlen(dir) + 1);
 	scopy(dir, cdcomppath);
 	STARTSTACKSTR(new);
-	if (*dir != '/') {
+	if (!IS_ROOT(dir)) {
 		p = curdir;
 		while (*p)
 			STPUTC(*p++, new);
@@ -348,7 +348,7 @@ getpwd(int noerror)
 	if (first) {
 		first = 0;
 		pwd = getenv("PWD");
-		if (pwd && *pwd == '/' && stat(".", &stdot) != -1 &&
+		if (pwd && IS_ROOT(pwd) && stat(".", &stdot) != -1 &&
 		    stat(pwd, &stpwd) != -1 &&
 		    stdot.st_dev == stpwd.st_dev &&
 		    stdot.st_ino == stpwd.st_ino) {
@@ -380,7 +380,7 @@ find_curdir(int noerror)
 	 * c implementation of getcwd, that does not open a pipe to
 	 * /bin/pwd.
 	 */
-#if defined(__NetBSD__) || defined(__SVR4)
+#if defined(__NetBSD__) || defined(__SVR4) || defined(__INNOTEK_LIBC__)
 
 	for (i = MAXPWD;; i *= 2) {
 		pwd = stalloc(i);

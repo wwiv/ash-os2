@@ -58,7 +58,7 @@ void out1str(const char *);
 void out2str(const char *);
 void outstr(const char *, struct output *);
 void emptyoutbuf(struct output *);
-void flushall(void);
+void output_flushall(void);
 void flushout(struct output *);
 void freestdout(void);
 void outfmt(struct output *, const char *, ...)

@@ -111,7 +111,7 @@ readcmd(int argc, char **argv)
 
 	if (prompt && isatty(0)) {
 		out2str(prompt);
-		flushall();
+		output_flushall();
 	}
 
 	if (*(ap = argptr) == NULL)
@@ -275,7 +275,11 @@ umaskcmd(int argc, char **argv)
 			void *set;
 
 			INTOFF;
+#ifdef __INNOTEK_LIBC__
+			if ((set = bsd_setmode(ap)) != 0) {
+#else
 			if ((set = setmode(ap)) != 0) {
+#endif
 				mask = getmode(set, ~mask & 0777);
 				ckfree(set);
 			}
