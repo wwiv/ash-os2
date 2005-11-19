@@ -481,7 +481,7 @@ out:
 	if (err) {
 		*optnext = NULL;
 		*optpptr = NULL;
-		flushall();
+		output_flushall();
 		exraise(EXERROR);
 	}
 	return done;

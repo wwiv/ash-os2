@@ -167,7 +167,7 @@ exverror(int cond, const char *msg, va_list ap)
 	if (msg)
 		exvwarning(-1, msg, ap);
 
-	flushall();
+	output_flushall();
 	exraise(cond);
 	/* NOTREACHED */
 }

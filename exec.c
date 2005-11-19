@@ -79,6 +79,9 @@ __RCSID("$NetBSD: exec.c,v 1.37 2003/08/07 09:05:31 agc Exp $");
 #include "show.h"
 #include "jobs.h"
 #include "alias.h"
+#ifdef __INNOTEK_LIBC__
+#include <InnoTekLIBC/backend.h>
+#endif
 
 
 #define CMDTABLESIZE 31		/* should be prime */
@@ -100,12 +103,15 @@ STATIC int builtinloc = -1;		/* index in path of %builtin, or -1 */
 int exerrno = 0;			/* Last exec error */
 
 
-STATIC void tryexec(char *, char **, char **, int);
+STATIC void tryexec(char *, char **, char **, int, int);
 STATIC void execinterp(char **, char **);
 STATIC void printentry(struct tblentry *, int);
 STATIC void clearcmdentry(int);
 STATIC struct tblentry *cmdlookup(const char *, int);
 STATIC void delete_cmd_entry(void);
+#ifdef PC_EXE_EXTS
+STATIC int stat_pc_exec_exts(char *fullname, struct stat *st, int has_ext);
+#endif
 
 
 extern char *const parsekwd[];
@@ -120,15 +126,34 @@ shellexec(char **argv, char **envp, const char *path, int idx, int vforked)
 {
 	char *cmdname;
 	int e;
-
+#ifdef PC_EXE_EXTS
+        int has_ext = strlen(argv[0]) - 4;
+        has_ext = has_ext > 0
+            && argv[0][has_ext] == '.'
+            /* use strstr and upper/lower permuated extensions to avoid multiple strcasecmp calls. */
+            && strstr("exe;" "Exe;" "EXe;" "EXE;" "ExE;" "eXe;" "eXE;" "exE;"
+                      "cmd;" "Cmd;" "CMd;" "CMD;" "CmD;" "cMd;" "cMD;" "cmD;"
+                      "com;" "Com;" "COm;" "COM;" "CoM;" "cOm;" "cOM;" "coM;"
+                      "bat;" "Bat;" "BAt;" "BAT;" "BaT;" "bAt;" "bAT;" "baT;"
+                      "btm;" "Btm;" "BTm;" "BTM;" "BtM;" "bTm;" "bTM;" "btM;",
+                      argv[0] + has_ext + 1)
+               != NULL;
+#else
+	const int has_ext = 1;
+#endif
+	TRACE(("shellexec: argv[0]=%s idx=%d\n", argv[0], idx));
 	if (strchr(argv[0], '/') != NULL) {
-		tryexec(argv[0], argv, envp, vforked);
+		cmdname = stalloc(strlen(argv[0]) + 5);
+		strcpy(cmdname, argv[0]);
+		tryexec(cmdname, argv, envp, vforked, has_ext);
+		TRACE(("shellexec: cmdname=%s\n", cmdname));
+		stunalloc(cmdname);
 		e = errno;
 	} else {
 		e = ENOENT;
 		while ((cmdname = padvance(&path, argv[0])) != NULL) {
 			if (--idx < 0 && pathopt == NULL) {
-				tryexec(cmdname, argv, envp, vforked);
+				tryexec(cmdname, argv, envp, vforked, has_ext);
 				if (errno != ENOENT && errno != ENOTDIR)
 					e = errno;
 			}
@@ -148,7 +173,7 @@ shellexec(char **argv, char **envp, const char *path, int idx, int vforked)
 		exerrno = 2;
 		break;
 	}
-	TRACE(("shellexec failed for %s, errno %d, vforked %d, suppressint %d\n",
+	TRACE(("shellexec failed for '%s', errno %d, vforked %d, suppressint %d\n",
 		argv[0], e, vforked, suppressint ));
 	exerror(EXEXEC, "%s: %s", argv[0], errmsg(e, E_EXEC));
 	/* NOTREACHED */
@@ -156,11 +181,22 @@ shellexec(char **argv, char **envp, const char *path, int idx, int vforked)
 
 
 STATIC void
-tryexec(char *cmd, char **argv, char **envp, int vforked)
+tryexec(char *cmd, char **argv, char **envp, int vforked, int has_ext)
 {
 	int e;
-#ifndef BSD
+#ifdef EXEC_HASH_BANG_SCRIPT
 	char *p;
+#endif
+#ifdef PC_EXE_EXTS
+        /* exploit the effect of stat_pc_exec_exts which adds the
+         * correct extentions to the file.
+         */
+        struct stat st;
+        if (!has_ext)
+            stat_pc_exec_exts(cmd, &st, 0);
+#endif
+#if defined __INNOTEK_LIBC__ && defined EXEC_HASH_BANG_SCRIPT
+	__libc_Back_gfProcessHandleHashBangScripts = 0;
 #endif
 
 #ifdef SYSV
@@ -182,7 +218,7 @@ tryexec(char *cmd, char **argv, char **envp, int vforked)
 		initshellproc();
 		setinputfile(cmd, 0);
 		commandname = arg0 = savestr(argv[0]);
-#ifndef BSD
+#ifdef EXEC_HASH_BANG_SCRIPT
 		pgetc(); pungetc();		/* fill up input buffer */
 		p = parsenextc;
 		if (parsenleft > 2 && p[0] == '#' && p[1] == '!') {
@@ -197,7 +233,7 @@ tryexec(char *cmd, char **argv, char **envp, int vforked)
 }
 
 
-#ifndef BSD
+#ifdef EXEC_HASH_BANG_SCRIPT
 /*
  * Execute an interpreter introduced by "#!", for systems where this
  * feature has not been built into the kernel.  If the interpreter is
@@ -248,6 +284,7 @@ bad:		  error("Bad #! line");
 		p = newargs[0];
 		for (;;) {
 			if (equal(p, "sh") || equal(p, "ash")) {
+				TRACE(("hash bang self\n"));
 				return;
 			}
 			while (*p != '/') {
@@ -269,7 +306,8 @@ break2:;
 		*ap2++ = *ap++;
 	ap = argv;
 	while (*ap2++ = *ap++);
-	shellexec(new, envp, pathval(), 0);
+	TRACE(("hash bang '%s'\n", new[0]));
+	shellexec(new, envp, pathval(), 0, 0);
 	/* NOTREACHED */
 }
 #endif
@@ -299,8 +337,15 @@ padvance(const char **path, const char *name)
 	if (*path == NULL)
 		return NULL;
 	start = *path;
+#ifdef PC_PATH_SEP
+	for (p = start ; *p && *p != ';' && *p != '%' ; p++);
+#else
 	for (p = start ; *p && *p != ':' && *p != '%' ; p++);
+#endif
 	len = p - start + strlen(name) + 2;	/* "2" is for '/' and '\0' */
+#ifdef PC_EXE_EXTS
+        len += 4; /* "4" is for .exe/.com/.cmd/.bat/.btm */
+#endif
 	while (stackblocksize() < len)
 		growstackblock();
 	q = stackblock();
@@ -313,14 +358,65 @@ padvance(const char **path, const char *name)
 	pathopt = NULL;
 	if (*p == '%') {
 		pathopt = ++p;
+#ifdef PC_PATH_SEP
+		while (*p && *p != ';')  p++;
+#else
 		while (*p && *p != ':')  p++;
+#endif
 	}
+#ifdef PC_PATH_SEP
+	if (*p == ';')
+#else
 	if (*p == ':')
+#endif
 		*path = p + 1;
 	else
 		*path = NULL;
 	return stalloc(len);
 }
+
+
+#ifdef PC_EXE_EXTS
+STATIC int stat_pc_exec_exts(char *fullname, struct stat *st, int has_ext)
+{
+    /* skip the SYSV crap */
+    if (stat(fullname, st) >= 0)
+        return 0;
+    if (!has_ext && errno == ENOENT)
+    {
+        char *psz = strchr(fullname, '\0');
+        memcpy(psz, ".exe", 5);
+        if (stat(fullname, st) >= 0)
+            return 0;
+        if (errno != ENOENT && errno != ENOTDIR)
+            return -1;
+
+        memcpy(psz, ".cmd", 5);
+        if (stat(fullname, st) >= 0)
+            return 0;
+        if (errno != ENOENT && errno != ENOTDIR)
+            return -1;
+
+        memcpy(psz, ".bat", 5);
+        if (stat(fullname, st) >= 0)
+            return 0;
+        if (errno != ENOENT && errno != ENOTDIR)
+            return -1;
+
+        memcpy(psz, ".com", 5);
+        if (stat(fullname, st) >= 0)
+            return 0;
+        if (errno != ENOENT && errno != ENOTDIR)
+            return -1;
+
+        memcpy(psz, ".btm", 5);
+        if (stat(fullname, st) >= 0)
+            return 0;
+        *psz = '\0';
+    }
+    return -1;
+}
+#endif /* PC_EXE_EXTS */
 
 
 
@@ -365,7 +461,7 @@ hashcmd(int argc, char **argv)
 				cmdp = cmdlookup(name, 0);
 				printentry(cmdp, verbose);
 			}
-			flushall();
+			output_flushall();
 		}
 		argptr++;
 	}
@@ -433,6 +529,20 @@ find_command(char *name, struct cmdentry *entry, int act, const char *path)
 	struct stat statb;
 	int e;
 	int (*bltin)(int,char **);
+
+#ifdef PC_EXE_EXTS
+        int has_ext = strlen(name) - 4;
+        has_ext = has_ext > 0
+            && name[has_ext] == '.'
+            /* use strstr and upper/lower permuated extensions to avoid multiple strcasecmp calls. */
+            && strstr("exe;" "Exe;" "EXe;" "EXE;" "ExE;" "eXe;" "eXE;" "exE;"
+                      "cmd;" "Cmd;" "CMd;" "CMD;" "CmD;" "cMd;" "cMD;" "cmD;"
+                      "com;" "Com;" "COm;" "COM;" "CoM;" "cOm;" "cOM;" "coM;"
+                      "bat;" "Bat;" "BAt;" "BAT;" "BaT;" "bAt;" "bAT;" "baT;"
+                      "btm;" "Btm;" "BTm;" "BTM;" "BtM;" "bTm;" "bTM;" "btM;",
+                      name + has_ext + 1)
+               != NULL;
+#endif
 
 	/* If name contains a slash, don't use PATH or hash table */
 	if (strchr(name, '/') != NULL) {
@@ -531,13 +641,18 @@ loop:
 			TRACE(("searchexec \"%s\": no change\n", name));
 			goto success;
 		}
+#ifdef PC_EXE_EXTS
+		while (stat_pc_exec_exts(fullname, &statb, has_ext) < 0) {
+#else
 		while (stat(fullname, &statb) < 0) {
+#endif
 #ifdef SYSV
 			if (errno == EINTR)
 				continue;
 #endif
 			if (errno != ENOENT && errno != ENOTDIR)
 				e = errno;
+
 			goto loop;
 		}
 		e = EACCES;	/* if we fail, this will be the error */
@@ -706,8 +821,13 @@ changepath(const char *newval)
 	for (;;) {
 		if (*old != *new) {
 			firstchange = idx;
+#ifdef PC_PATH_SEP
+			if ((*old == '\0' && *new == ';')
+			 || (*old == ';' && *new == '\0'))
+#else
 			if ((*old == '\0' && *new == ':')
 			 || (*old == ':' && *new == '\0'))
+#endif
 				firstchange++;
 			old = new;	/* ignore subsequent differences */
 		}
@@ -715,7 +835,11 @@ changepath(const char *newval)
 			break;
 		if (*new == '%' && bltin < 0 && prefix("builtin", new + 1))
 			bltin = idx;
+#ifdef PC_PATH_SEP
+		if (*new == ';') {
+#else
 		if (*new == ':') {
+#endif
 			idx++;
 		}
 		new++, old++;

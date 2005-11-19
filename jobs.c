@@ -258,7 +258,7 @@ fgcmd(int argc, char **argv)
 	for (i = 1; i < jp->nprocs; i++)
 		out1fmt(" | %s", jp->ps[i].cmd );
 	out1c('\n');
-	flushall();
+	output_flushall();
 
 	for (i = 0; i < jp->nprocs; i++)
 	    if (tcsetpgrp(ttyfd, jp->ps[i].pid) != -1)
@@ -338,7 +338,7 @@ bgcmd(int argc, char **argv)
 		for (i = 1; i < jp->nprocs; i++)
 			out1fmt(" | %s", jp->ps[i].cmd );
 		out1c('\n');
-		flushall();
+		output_flushall();
 		restartjob(jp);
 	} while (*argptr && *++argptr);
 	return 0;
@@ -448,7 +448,7 @@ showjob(struct output *out, struct job *jp, int mode)
 				fmtstr(s + col, 16, "Done");
 		} else {
 #if JOBS
-			if (WIFSTOPPED(ps->status)) 
+			if (WIFSTOPPED(ps->status))
 				st = WSTOPSIG(ps->status);
 			else /* WIFSIGNALED(ps->status) */
 #endif

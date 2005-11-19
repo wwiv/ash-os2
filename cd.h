@@ -33,3 +33,11 @@
 void	getpwd(int);
 int	cdcmd(int, char **);
 int	pwdcmd(int, char **);
+#ifdef PC_DRIVE_LETTERS
+#define IS_ROOT(path) (   *(path) == '/' \
+                       || *(path) == '\\' \
+                       ||  ( ((*(path) >= 'A' && *(path) <= 'Z') || (*(path) >= 'a' && *(path) <= 'z')) \
+                             && (path)[1] == ':') )
+#else
+#define IS_ROOT(path) ( *(path) == '/' )
+#endif

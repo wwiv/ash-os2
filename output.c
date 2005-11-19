@@ -174,7 +174,7 @@ emptyoutbuf(struct output *dest)
 
 
 void
-flushall(void)
+output_flushall(void)
 {
 	flushout(&output);
 	flushout(&errout);
@@ -284,7 +284,7 @@ doformat(struct output *dest, const char *f, va_list ap)
 
 	vasprintf(&s, f, ap);
 	outstr(s, dest);
-	free(s);     
+	free(s);
 #else	/* !HAVE_VASPRINTF */
 	static const char digit[] = "0123456789ABCDEF";
 	char c;

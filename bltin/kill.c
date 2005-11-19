@@ -57,8 +57,8 @@ __RCSID("$NetBSD: kill.c,v 1.23 2003/08/07 09:05:13 agc Exp $");
 
 #ifdef SHELL            /* sh (aka ash) builtin */
 #define main killcmd
-#include "../../bin/sh/bltin/bltin.h"
-#endif /* SHELL */ 
+#include "bltin/bltin.h"
+#endif /* SHELL */
 
 static void nosig(char *);
 static void printsignals(FILE *);
@@ -148,7 +148,7 @@ main(int argc, char *argv[])
 				errors = 1;
 				continue;
 			}
-		} else 
+		} else
 #endif
 		{
 			pid = strtol(*argv, &ep, 10);
@@ -206,11 +206,15 @@ printsignals(FILE *fp)
 	const char *name;
 	int termwidth = 80;
 
+#ifdef TIOCGWINSZ
 	if (isatty(fileno(fp))) {
 		struct winsize win;
 		if (ioctl(fileno(fp), TIOCGWINSZ, &win) == 0 && win.ws_col > 0)
 			termwidth = win.ws_col;
 	}
+#else
+#warning TIOCGWINSZ is not present.
+#endif
 
 	for (len = 0, sig = 1; sig < NSIG; sig++) {
 		name = sys_signame[sig];

@@ -441,7 +441,7 @@ exitshell(int status)
 		evalstring(p, 0);
 	}
 l1:   handler = &loc2;			/* probably unnecessary */
-	flushall();
+	output_flushall();
 #if JOBS
 	setjobctl(0);
 #endif

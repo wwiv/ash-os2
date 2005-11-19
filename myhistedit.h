@@ -31,10 +31,12 @@
  *	@(#)myhistedit.h	8.2 (Berkeley) 5/4/95
  */
 
+#ifndef SMALL
 #include <histedit.h>
 
 extern History *hist;
 extern EditLine *el;
+#endif
 extern int displayhist;
 
 void histedit(void);
