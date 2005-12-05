@@ -1,3 +1,4 @@
+%option noyywrap
 %{
 /*	$NetBSD: arith_lex.l,v 1.13 2005/03/21 22:37:09 dsl Exp $	*/
 
