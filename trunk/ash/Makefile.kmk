@@ -1,3 +1,10 @@
+# $Id: $
+## @file
+#
+# kBuild Makefile for ash.
+#
+# Copyright (c) 2005 knut st. osmundsen <bird@anduin.net>
+#
 
 PROGRAMS = ash
 
@@ -43,12 +50,10 @@ ash_DEPS = \
 	$(PATH_TARGET)/token.h
 
 
-LFLAGS= -L -8
-YFLAGS= -l -d
-
 DEPTH = ..						
 include $(PATH_KBUILD)/rules.kmk
 
+## @todo: Make kBuild use this now that '|' has been discovered.		
 $(PATH_TARGET):
 	$(MKDIR) -p $@
 
@@ -75,7 +80,4 @@ $(PATH_TARGET)/token.h: mktokens | $(PATH_TARGET)
 $(PATH_TARGET)/init.c: mkinit.sh $(filter-out $(PATH_TARGET)/%,$(ash_SOURCES))  | $(PATH_TARGET)
 	$+
 	$(MV) init.c $@
-	
-
-
 
