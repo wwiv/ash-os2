@@ -7,6 +7,7 @@
 #
 
 PROGRAMS = ash
+INSTALLS = ash.man
 
 ash_TEMPLATE = bin
 ash_DEFS = lint SHELL SMALL
@@ -48,23 +49,31 @@ ash_DEPS = \
 	$(PATH_TARGET)/builtins.h \
 	$(PATH_TARGET)/nodes.h \
 	$(PATH_TARGET)/token.h
+ash_CLEAN = \
+	$(ash_DEPS)	\
+	$(PATH_TARGET)/arith.c \
+	$(PATH_TARGET)/arith_lex.c \
+	$(PATH_TARGET)/builtins.c \
+	$(PATH_TARGET)/init.c \
+	$(PATH_TARGET)/nodes.c
 
+ash.man_TEMPLATE = usr.bin.man
+ash.man_SOURCES = \
+	sh.1=>ash.1
+#ash.man_SYMLINKS = \
+#	ash.1.gz=>sh.1
 
-DEPTH = ..						
+DEPTH = ..
 include $(PATH_KBUILD)/rules.kmk
-
-## @todo: Make kBuild use this now that '|' has been discovered.		
-$(PATH_TARGET):
-	$(MKDIR) -p $@
 
 $(PATH_TARGET)/arith.h $(PATH_TARGET)/arith.c: arith.y | $(PATH_TARGET)
 	yacc -ld $^
 	$(MV) -f y.tab.c $(PATH_TARGET)/arith.c
 	$(MV) -f y.tab.h $(PATH_TARGET)/arith.h
-	
+
 $(PATH_TARGET)/arith_lex.c: arith_lex.l | $(PATH_TARGET)
 	flex -8 -o$@ $^                     # 8-bit lex scanner for arithmetic
-						
+
 $(PATH_TARGET)/builtins.h $(PATH_TARGET)/builtins.c: mkbuiltins shell.h builtins.def | $(PATH_TARGET)
 	$+ $(dir $@)
 	[ -f $(PATH_TARGET)/builtins.h ]
@@ -77,7 +86,7 @@ $(PATH_TARGET)/token.h: mktokens | $(PATH_TARGET)
 	$+
 	$(MV) token.h $@
 
-$(PATH_TARGET)/init.c: mkinit.sh $(filter-out $(PATH_TARGET)/%,$(ash_SOURCES))  | $(PATH_TARGET)
+$(PATH_TARGET)/init.c: mkinit.sh $(filter-out $(PATH_TARGET)/%,$(ash_SOURCES)) | $(PATH_TARGET)
 	$+
 	$(MV) init.c $@
 
