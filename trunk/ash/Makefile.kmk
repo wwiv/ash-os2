@@ -66,27 +66,27 @@ ash.man_SOURCES = \
 DEPTH = ..
 include $(PATH_KBUILD)/rules.kmk
 
-$(PATH_TARGET)/arith.h $(PATH_TARGET)/arith.c: arith.y | $(PATH_TARGET)
+$(PATH_TARGET)/arith.h $(PATH_TARGET)/arith.c: arith.y | $(call DIRDEP,$(PATH_TARGET))
 	yacc -ld $^
 	$(MV) -f y.tab.c $(PATH_TARGET)/arith.c
 	$(MV) -f y.tab.h $(PATH_TARGET)/arith.h
 
-$(PATH_TARGET)/arith_lex.c: arith_lex.l | $(PATH_TARGET)
+$(PATH_TARGET)/arith_lex.c: arith_lex.l | $(call DIRDEP,$(PATH_TARGET))
 	flex -8 -o$@ $^                     # 8-bit lex scanner for arithmetic
 
-$(PATH_TARGET)/builtins.h $(PATH_TARGET)/builtins.c: mkbuiltins shell.h builtins.def | $(PATH_TARGET)
+$(PATH_TARGET)/builtins.h $(PATH_TARGET)/builtins.c: mkbuiltins shell.h builtins.def | $(call DIRDEP,$(PATH_TARGET))
 	$+ $(dir $@)
 	[ -f $(PATH_TARGET)/builtins.h ]
 
-$(PATH_TARGET)/nodes.h $(PATH_TARGET)/nodes.c: mknodes.sh nodetypes nodes.c.pat | $(PATH_TARGET)
+$(PATH_TARGET)/nodes.h $(PATH_TARGET)/nodes.c: mknodes.sh nodetypes nodes.c.pat | $(call DIRDEP,$(PATH_TARGET))
 	$+ $(dir $@)
 	[ -f $(dir $@)/nodes.h ]
 
-$(PATH_TARGET)/token.h: mktokens | $(PATH_TARGET)
+$(PATH_TARGET)/token.h: mktokens | $(call DIRDEP,$(PATH_TARGET))
 	$+
 	$(MV) token.h $@
 
-$(PATH_TARGET)/init.c: mkinit.sh $(filter-out $(PATH_TARGET)/%,$(ash_SOURCES)) | $(PATH_TARGET)
+$(PATH_TARGET)/init.c: mkinit.sh $(filter-out $(PATH_TARGET)/%,$(ash_SOURCES)) | $(call DIRDEP,$(PATH_TARGET))
 	$+
 	$(MV) init.c $@
 
