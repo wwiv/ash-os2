@@ -10,6 +10,7 @@ PROGRAMS = ash
 INSTALLS = ash.man
 
 ash_TEMPLATE = bin
+ash_INST = bin/ash$(SUFF_EXE) bin/sh$(SUFF_EXE)
 ash_DEFS = lint SHELL SMALL
 ash_DEFS.os2 = EXEC_HASH_BANG_SCRIPT PC_OS2_LIBPATHS PC_PATH_SEP PC_DRIVE_LETTERS PC_EXE_EXTS
 ash_INCS = $(PATH_TARGET) . # (the last is because of error.h)
@@ -75,18 +76,18 @@ $(PATH_TARGET)/arith_lex.c: arith_lex.l | $(call DIRDEP,$(PATH_TARGET))
 	flex -8 -o$@ $^                     # 8-bit lex scanner for arithmetic
 
 $(PATH_TARGET)/builtins.h $(PATH_TARGET)/builtins.c: mkbuiltins shell.h builtins.def | $(call DIRDEP,$(PATH_TARGET))
-	$+ $(dir $@)
+	$(ASH) $+ $(dir $@)
 	[ -f $(PATH_TARGET)/builtins.h ]
 
 $(PATH_TARGET)/nodes.h $(PATH_TARGET)/nodes.c: mknodes.sh nodetypes nodes.c.pat | $(call DIRDEP,$(PATH_TARGET))
-	$+ $(dir $@)
+	$(ASH) $+ $(dir $@)
 	[ -f $(dir $@)/nodes.h ]
 
 $(PATH_TARGET)/token.h: mktokens | $(call DIRDEP,$(PATH_TARGET))
-	$+
+	$(ASH) $+
 	$(MV) token.h $@
 
 $(PATH_TARGET)/init.c: mkinit.sh $(filter-out $(PATH_TARGET)/%,$(ash_SOURCES)) | $(call DIRDEP,$(PATH_TARGET))
-	$+
+	$(ASH) $+
 	$(MV) init.c $@
 
