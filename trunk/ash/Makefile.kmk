@@ -45,7 +45,7 @@ ash_SOURCES = \
 	$(PATH_TARGET)/builtins.c \
 	$(PATH_TARGET)/init.c \
 	$(PATH_TARGET)/nodes.c
-ash_DEPS = \
+ash_ORDERDEPS = \
 	$(PATH_TARGET)/arith.h \
 	$(PATH_TARGET)/builtins.h \
 	$(PATH_TARGET)/nodes.h \
