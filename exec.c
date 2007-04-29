@@ -331,7 +331,7 @@ padvance(const char **path, const char *name)
 {
 	const char *p;
 	char *q;
-#ifdef __EMX__
+#ifdef PC_SLASHES
 	char *s;
 #endif
 	const char *start;
@@ -351,7 +351,7 @@ padvance(const char **path, const char *name)
 #endif
 	while (stackblocksize() < len)
 		growstackblock();
-#ifdef __EMX__
+#ifdef PC_SLASHES
 	s =
 #endif
 	q = stackblock();
@@ -361,7 +361,7 @@ padvance(const char **path, const char *name)
 		*q++ = '/';
 	}
 	strcpy(q, name);
-#ifdef __EMX__
+#ifdef PC_SLASHES
 	while ((s = strchr(s, '\\')) != NULL)
 		*s++ = '/';
 #endif
