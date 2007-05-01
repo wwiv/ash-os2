@@ -229,6 +229,58 @@ tryexec(char *cmd, char **argv, char **envp, int vforked, int has_ext)
 		setparam(argv + 1);
 		exraise(EXSHELLPROC);
 	}
+#ifdef __OS2__
+	/* A lot of scripts references some core /bin/ programs, like for 
+	   instance the bash testcases. So, to make life easier, we map 
+	   a small set of these to @unixroot and or the PATH to simplify 
+	   porting. */
+	else if (!strncmp(cmd, "/bin/", sizeof("/bin/") - 1)) {
+		char *name = cmd+ sizeof("/bin/") - 1;
+		int search_path = 1;
+		if (!strcmp(name, "sh")
+		 || !strcmp(name, "sh.exe")
+		 || !strcmp(name, "bash")
+		 || !strcmp(name, "bash.exe")
+		 || !strcmp(name, "ash")
+		 || !strcmp(name, "ash.exe")
+		 || !strcmp(name, "ls")
+		 || !strcmp(name, "ls.exe")
+		 || !strcmp(name, "cat")
+		 || !strcmp(name, "cat.exe")
+		 || !strcmp(name, "mkdir")
+		 || !strcmp(name, "mkdir.exe")
+		 || !strcmp(name, "expr")
+		 || !strcmp(name, "expr.exe")
+		 || !strcmp(name, "pwd")
+		 || !strcmp(name, "pwd.exe")
+		 || !strcmp(name, "tr")
+		 || !strcmp(name, "tr.exe")
+		 || (search_path = 0)
+		 || !strcmp(name, "sort")
+		 || !strcmp(name, "sort.exe")
+		 || !strcmp(name, "cp")
+		 || !strcmp(name, "cp.exe")
+		 || !strcmp(name, "rm")
+		 || !strcmp(name, "rm.exe")
+		 || !strcmp(name, "unlink")
+		 || !strcmp(name, "unlink.exe")
+		 || !strcmp(name, "mv")
+		 || !strcmp(name, "mv.exe")
+		 || !strcmp(name, "rmdir")
+		 || !strcmp(name, "rmdir.exe")
+		) {
+    			char tmp[48];
+			strcat(strcpy(tmp, "/@unixroot"), cmd);
+			execve(tmp, argv, envp);
+			if (search_path) {
+				strcpy(tmp, name);
+				if (!strchr(name, '.'))
+					strcat(tmp, ".exe");
+				execvpe(tmp, argv, envp);
+			}
+		}
+	}
+#endif 
 	errno = e;
 }
 
