@@ -212,7 +212,11 @@ initvar(void)
             libpath_vars[i].func = NULL;
 
             if (i > 0)
+            {
+                /* the LIBPATHSTRICT query doesn't terminate the string... */
+                psz[0] = psz[1] = psz[2] = psz[3] = '\0'; 
                 rc = DosQueryExtLIBPATH(psz, i);
+            }
             else
             {
                 rc = DosQueryHeaderInfo(NULLHANDLE, 0, psz, 2048, QHINF_LIBPATH);
