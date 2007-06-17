@@ -51,7 +51,7 @@ ash_ORDERDEPS = \
 	$(PATH_TARGET)/nodes.h \
 	$(PATH_TARGET)/token.h
 ash_CLEAN = \
-	$(ash_DEPS)	\
+	$(ash_ORDERDEPS)	\
 	$(PATH_TARGET)/arith.c \
 	$(PATH_TARGET)/arith_lex.c \
 	$(PATH_TARGET)/builtins.c \
